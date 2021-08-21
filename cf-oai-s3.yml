@@ -12,6 +12,9 @@ Parameters:
     Type: String
     Default: 'dev'
     Description: Prefix of Env tags.
+  LogBucketName:
+    Type: String
+    Default: 'hogehoge'
 # ------------------------------------------------------------#
 # Resources
 # ------------------------------------------------------------#
@@ -52,7 +55,7 @@ Resources:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
         Enabled: true
         Logging:
-          Bucket: 'demoqrin-logs.s3.amazonaws.com'
+          Bucket: !Ref LogBucketName
           IncludeCookies: true
           Prefix: 'cloudfront'
         DefaultRootObject: index.html
