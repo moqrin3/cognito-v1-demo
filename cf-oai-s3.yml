@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Static contents distribution using S3 and CloudFront
+# ------------------------------------------------------------#
+# Parameters
+# ------------------------------------------------------------#
+Parameters:
+  NameTagPrefix:
+    Type: String
+    Default: 'demo-sys'
+    Description: Prefix of Name tags.
+  ENV:
+    Type: String
+    Default: 'dev'
+    Description: Prefix of Env tags.
+# ------------------------------------------------------------#
+# Resources
+# ------------------------------------------------------------#
+Resources:
+  # S3 bucket contains static contents
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${NameTagPrefix}-${ENV}-${AWS::AccountId}-moqrin
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+    # DeletionPolicy: Retain
+  # S3 bucket policy to allow access from CloudFront OAI
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssetsBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:aws:s3:::${AssetsBucket}/*
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}
+
+  # CloudFront Distribution for contents delivery
+  AssetsDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt AssetsBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+        Enabled: true
+        Logging:
+          Bucket: 'demoqrin-logs.s3.amazonaws.com'
+          IncludeCookies: true
+          Prefix: 'cloudfront'
+        DefaultRootObject: index.html
+        Comment: !Sub ${AWS::StackName} distribution
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          CachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+          Compress: true
+          ViewerProtocolPolicy: redirect-to-https
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Ref AWS::StackName
+# ------------------------------------------------------------#
+# Outputs
+# ------------------------------------------------------------#
+Outputs:
+  URL:
+    Value: !Join ['', ['https://', !GetAtt [AssetsDistribution, DomainName]]]
